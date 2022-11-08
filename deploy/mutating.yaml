@@ -1,0 +1,62 @@
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: node-selector-sts
+  labels:
+    app: node-selector-sts
+webhooks:
+  - sideEffects: None
+    clientConfig:
+      caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURCakNDQWU2Z0F3SUJBZ0lCQVRBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwdGFXNXAKYTNWaVpVTkJNQjRYRFRJeE1EZ3hNVEE0TlRNMU5Gb1hEVE14TURneE1EQTROVE0xTkZvd0ZURVRNQkVHQTFVRQpBeE1LYldsdWFXdDFZbVZEUVRDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBTlU1CjhNNGJiZTdJUlFWckZJaGxBQmkreXdzcVRHY1ZEc0ZMelJYc2JLZFExTEs4NWk4MEJ3Q0YxNEE1eUV2cTlkVjcKV3VYSWZGMW9adlN2V0JBU0t2ejQzOFYyK1JPVG1yNzRRRmJPTnM0Wm5IZFoxcDZTMlUyL2IzSzJpYmlqZHhwRQo4S3plVlJSVXNtaVZpOXdVOVBJS3pTdHdaUlNJNENHNGc0MVRlb3lwL3lwamhLWWRndFMrUmdhdnd6UzlTaUp3CndSQzlwVkdTYllrT1E0RXhBL0RtNTJJdXhqUW1DbzJvYVUzTkNRblpKdUpGL2ozU2d0dVZYQlc0NlhDZERyb1YKaStCOE50dVpYK2xEb1JVTUN1bnpHdW1tMjMvMGg1L20zSTBibTE2MXp5Rk1JRXdDTzlVVXFsckJxb0ZadEViegpqVlh5clc3S0NhSko1dlNJNUdFQ0F3RUFBYU5oTUY4d0RnWURWUjBQQVFIL0JBUURBZ0trTUIwR0ExVWRKUVFXCk1CUUdDQ3NHQVFVRkJ3TUNCZ2dyQmdFRkJRY0RBVEFQQmdOVkhSTUJBZjhFQlRBREFRSC9NQjBHQTFVZERnUVcKQkJTK1pFbTI3UDJWdlMxbzN2ZmF1aEVqMEZSNTRqQU5CZ2txaGtpRzl3MEJBUXNGQUFPQ0FRRUFqbXdCTEJpYQprcW91RUx3RWcvRTNNamZmMm55dXpaeGtsQ2RabGZ2bmw3ajlGVlZpMFgxd0paMzFrbEtvbCtWdlBGVERvMjZ4CnFpTlYrQkpzS1ZUOGVNSUZPYjFRRys0YWtHUWExODlqNWFJTjMyeDZ0cXVzOTgvc3lpa1M4OTJxeGdDOUJwOVgKVEZYc2lOYjhHTms0R2FQWGRtem04ZDE4aklQSVhHT0FpcW0ydE0xb2xOVzFHaUVYNnlNaHRQMk4xN1ZmTTdaaApNUWR6TWJ5L2dCdVdEMjhzeTIwcktyd3d3T1pZU3hWbDdZYVk5WEFWcjhxZlppcmJ4VG9rV2JFem40VVJhQ3M5CkZjZkZhZnVZTFdYVHZLZnZyQ0txSFpnSExzdUNUM1N4V3BkRm0xOXFQVjFLMk9Kbm5PVWtxa2FJZktiMEJWdS8KS3kyTGhGcEV5Qk5ZWEE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+      service: # 调用服务相关配置，这里是一个k8s的service，访问地址是<name>.<namespace>.svc:<port>/<path>
+        name: node-selector
+        namespace: webhook
+        path: /sts
+        port: 443
+    failurePolicy: Ignore
+    name: node-selector.kubernetes.io
+    namespaceSelector:
+      matchLabels:
+        webhook: enable
+    rules:
+      - apiGroups:
+          - "*"
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - statefulsets
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: node-selector-dp
+  labels:
+    app: node-selector-dp
+webhooks:
+  - sideEffects: None
+    clientConfig:
+      caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURCakNDQWU2Z0F3SUJBZ0lCQVRBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwdGFXNXAKYTNWaVpVTkJNQjRYRFRJeE1EZ3hNVEE0TlRNMU5Gb1hEVE14TURneE1EQTROVE0xTkZvd0ZURVRNQkVHQTFVRQpBeE1LYldsdWFXdDFZbVZEUVRDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBTlU1CjhNNGJiZTdJUlFWckZJaGxBQmkreXdzcVRHY1ZEc0ZMelJYc2JLZFExTEs4NWk4MEJ3Q0YxNEE1eUV2cTlkVjcKV3VYSWZGMW9adlN2V0JBU0t2ejQzOFYyK1JPVG1yNzRRRmJPTnM0Wm5IZFoxcDZTMlUyL2IzSzJpYmlqZHhwRQo4S3plVlJSVXNtaVZpOXdVOVBJS3pTdHdaUlNJNENHNGc0MVRlb3lwL3lwamhLWWRndFMrUmdhdnd6UzlTaUp3CndSQzlwVkdTYllrT1E0RXhBL0RtNTJJdXhqUW1DbzJvYVUzTkNRblpKdUpGL2ozU2d0dVZYQlc0NlhDZERyb1YKaStCOE50dVpYK2xEb1JVTUN1bnpHdW1tMjMvMGg1L20zSTBibTE2MXp5Rk1JRXdDTzlVVXFsckJxb0ZadEViegpqVlh5clc3S0NhSko1dlNJNUdFQ0F3RUFBYU5oTUY4d0RnWURWUjBQQVFIL0JBUURBZ0trTUIwR0ExVWRKUVFXCk1CUUdDQ3NHQVFVRkJ3TUNCZ2dyQmdFRkJRY0RBVEFQQmdOVkhSTUJBZjhFQlRBREFRSC9NQjBHQTFVZERnUVcKQkJTK1pFbTI3UDJWdlMxbzN2ZmF1aEVqMEZSNTRqQU5CZ2txaGtpRzl3MEJBUXNGQUFPQ0FRRUFqbXdCTEJpYQprcW91RUx3RWcvRTNNamZmMm55dXpaeGtsQ2RabGZ2bmw3ajlGVlZpMFgxd0paMzFrbEtvbCtWdlBGVERvMjZ4CnFpTlYrQkpzS1ZUOGVNSUZPYjFRRys0YWtHUWExODlqNWFJTjMyeDZ0cXVzOTgvc3lpa1M4OTJxeGdDOUJwOVgKVEZYc2lOYjhHTms0R2FQWGRtem04ZDE4aklQSVhHT0FpcW0ydE0xb2xOVzFHaUVYNnlNaHRQMk4xN1ZmTTdaaApNUWR6TWJ5L2dCdVdEMjhzeTIwcktyd3d3T1pZU3hWbDdZYVk5WEFWcjhxZlppcmJ4VG9rV2JFem40VVJhQ3M5CkZjZkZhZnVZTFdYVHZLZnZyQ0txSFpnSExzdUNUM1N4V3BkRm0xOXFQVjFLMk9Kbm5PVWtxa2FJZktiMEJWdS8KS3kyTGhGcEV5Qk5ZWEE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+      service: # 调用服务相关配置，这里是一个k8s的service，访问地址是<name>.<namespace>.svc:<port>/<path>
+        name: node-selector
+        namespace: webhook
+        path: /dp
+        port: 443
+    failurePolicy: Ignore
+    name: node-selector.kubernetes.io
+    namespaceSelector:
+      matchLabels:
+        webhook: enable
+    rules:
+      - apiGroups:
+          - "*"
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - deployments

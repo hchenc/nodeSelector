@@ -21,17 +21,27 @@ func main() {
 	if err != nil {
 		logger.Fatalln(err)
 	}
-	nodeSelectorHandler := handlers.NodeSelectorHandler{Decoder: decoder}
-	webhook := admission.Webhook{
-		Handler: &nodeSelectorHandler,
-	}
 
-	_, err = inject.LoggerInto(klogr.New(), &webhook)
+	deploymentHandler := handlers.WebHookDeploymentHandler{Decoder: decoder}
+	deployWebhook := admission.Webhook{
+		Handler: &deploymentHandler,
+	}
+	_, err = inject.LoggerInto(klogr.New(), &deployWebhook)
 	if err != nil {
 		logger.Fatalln(err)
 	}
+	http.HandleFunc("/dp", deployWebhook.ServeHTTP)
 
-	http.HandleFunc("/nodeselector", webhook.ServeHTTP)
+	statefulSetHandler := handlers.WebHookStatefulSetHandler{Decoder: decoder}
+	statefulSetWebhook := admission.Webhook{
+		Handler: &statefulSetHandler,
+	}
+
+	_, err = inject.LoggerInto(klogr.New(), &statefulSetWebhook)
+	if err != nil {
+		logger.Fatalln(err)
+	}
+	http.HandleFunc("/sts", statefulSetWebhook.ServeHTTP)
 
 	err = http.ListenAndServeTLS(":443", "/etc/webhook/cert.pem", "/etc/webhook/key.pem", nil)
 	if err != nil {

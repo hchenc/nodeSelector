@@ -66,13 +66,13 @@ spec:
             secretName: node-selector
             items:
               - key: cert.pem
-                path: server-cert.pem
+                path: cert.pem
               - key: key.pem
-                path: server-key.pem
+                path: key.pem
             defaultMode: 420
       containers:
         - name: node-selector
-          image: '364554757/webhook:v0.13'
+          image: '364554757/webhook:v1.21'
           ports:
             - name: https
               containerPort: 443
@@ -95,31 +95,26 @@ spec:
   revisionHistoryLimit: 2
   progressDeadlineSeconds: 600
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: MutatingWebhookConfiguration
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
 metadata:
-  name: node-selector
-  labels:
-    app: node-selector
-webhooks:
-  - clientConfig:
-      caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURxRENDQXBDZ0F3SUJBZ0lSQUo0aEx2UDhlQTg0d0tJSkNNTlBzRjB3RFFZSktvWklodmNOQVFFTEJRQXcKRlRFVE1CRUdBMVVFQXhNS2JXbHVhV3QxWW1WRFFUQWVGdzB5TWpFd01UZ3dPRE13TWpsYUZ3MHlNekV3TVRndwpPRE13TWpsYU1EUXhNakF3QmdOVkJBTVRLV0ZrYldsemMybHZiaTEzWldKb2IyOXJMV1Y0WVcxd2JHVXRjM1pqCkxtUmxabUYxYkhRdWMzWmpNSUlCSWpBTkJna3Foa2lHOXcwQkFRRUZBQU9DQVE4QU1JSUJDZ0tDQVFFQXZhc08KekdlQnZZaHNMZ1Jxam5TQng3UU1pMmVtbGpYK2tSSHF2WSsxU0V6UkRwbWFnV2JOVEJDamJVY2RnUHRxQmJuVwp0K1hmWWdydW5SSktRRFZzN3lNVzVRdjdBNFZ6a21XU0Fza0M4Nm5CdTVxaWJDZ1dMUWhHa3ptbm01R29RUm9SCjVNNFV3Y3NqZVNKN1E3Yk9veTZUalptRFB2ZXlSMVorUVp3NWMyNzBoNUoyQy9wNXNmWVcvd3A5WWdlMkVYVDYKNzNtQkdaNndEZVVuQ0ZaaUdIZmhsTG84TGtTblhxcDlqZjBwU2JoT2Q1ME9WcmtubjU0QzFUQW9DRnNPWVh1aAp0bHFrakhLcW01Qi9wcTJGVGN0eXI5Sm9SOEFyK0NtNFFNZ3Z3Y2Q5dzNYWUZoZXV4U2tjcTBsUUZBL25XanlPCmM4V2pzZExYUHArRFdZNU8yd0lEQVFBQm80SFRNSUhRTUE0R0ExVWREd0VCL3dRRUF3SUZvREFUQmdOVkhTVUUKRERBS0JnZ3JCZ0VGQlFjREFUQU1CZ05WSFJNQkFmOEVBakFBTUI4R0ExVWRJd1FZTUJhQUZMNWtTYmJzL1pXOQpMV2plOTlxNkVTUFFWSG5pTUhvR0ExVWRFUVJ6TUhHQ0hXRmtiV2x6YzJsdmJpMTNaV0pvYjI5ckxXVjRZVzF3CmJHVXRjM1pqZ2lWaFpHMXBjM05wYjI0dGQyVmlhRzl2YXkxbGVHRnRjR3hsTFhOMll5NWtaV1poZFd4MGdpbGgKWkcxcGMzTnBiMjR0ZDJWaWFHOXZheTFsZUdGdGNHeGxMWE4yWXk1a1pXWmhkV3gwTG5OMll6QU5CZ2txaGtpRwo5dzBCQVFzRkFBT0NBUUVBZ2Rwa3hBaFl0Q1BidHJGdzlKY0dBcVREUmFHWWw2dXROc1ZMbzZTaVJINU5hS1dmCmMyZFdWTlZOVDNJRDMrWGVKRGpzQnY5bmJRbDI4TjdWRW5weEdubzFybnRJeUs5L0ZyeHZPZFlsbFFOMzZaV20KeTJqVnlqWGprK2Jyendnd1RwZENXRzFBU3B0b1d0a1V2MmV5bHV6ZXZWMmw2T0k4Vk5jTk9wd0xZVTNRektXTQp2YmYvcVVxZ0tHTTVwS1NERXpseE1EUEZKSGFGTCtNanVjYWd3d2gxbnRYK1FtMTBUMG8wT2Q4Unk0WDJpUmlRCnpBZWwyNldLVFBBaHlKd3JFejF1R2R1aERCdmtUNlhWQWM2Mk9NZmlFWE9Pb1pvM0RYdkh4ZzRaT21LQ3Z3OWsKMkw0VXBUbytwRTBTVjYzYVFYeHB3N21rVkFiNmRXVlNUa290ZFE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
-      service: # 调用服务相关配置，这里是一个k8s的service，访问地址是<name>.<namespace>.svc:<port>/<path>
-        name: node-selector
-        namespace: webhook
-        path: /nodeselector
-        port: 443
-    failurePolicy: Ignore
-    name: node-selector.kubernetes.io
-    namespaceSelector:
-      matchLabels:
-        webhook: enable
-    rules:
-      - apiGroups:
-          - "*"
-        apiVersions:
-          - v1
-        operations:
-          - CREATE
-        resources:
-          - deployments
+  name: high-priority
+value: 1000000
+globalDefault: false
+description: "This priority class should be used for Test pods only."
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: medium-priority
+value: 100000
+globalDefault: false
+description: "This priority class should be used for Test pods only."
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: low-priority
+value: 10000
+globalDefault: false
+description: "This priority class should be used for Test pods only."
