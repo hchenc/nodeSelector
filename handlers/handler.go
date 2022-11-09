@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"strings"
+	"time"
 )
 
 type WebHookHandler struct {
@@ -130,47 +131,63 @@ type WebHookDeploymentHandler struct {
 }
 
 func (handler *WebHookDeploymentHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
+	logger.Info("Req Method: ", req.Operation)
 	dp := &appsv1.Deployment{}
 	if err := handler.Decoder.Decode(req, dp); err == nil {
-		if dp.GetName() == "stress-boss" {
+		if dp.GetName() == "seckill-app" {
 			logger.Info("start to handle dp: ", dp.GetName())
+			for _, container := range dp.Spec.Template.Spec.Containers {
+				container.ImagePullPolicy = corev1.PullIfNotPresent
+			}
+			dp.Spec.Template.Spec.PriorityClassName = "high-priority"
+			dp.Spec.Template.Spec.Affinity = &corev1.Affinity{
+				PodAntiAffinity: &corev1.PodAntiAffinity{
+					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+						{
+							Weight: 100,
+							PodAffinityTerm: corev1.PodAffinityTerm{
+								TopologyKey: "kubernetes.io/hostname",
+								LabelSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{
+										"app": "seckill-app",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+		} else if dp.GetName() == "stress-boss" {
+			time.Sleep(30 * time.Second)
+			logger.Info("start to handle dp: ", dp.GetName())
+			for _, container := range dp.Spec.Template.Spec.Containers {
+				container.ImagePullPolicy = corev1.PullAlways
+			}
 			dp.Spec.Template.Spec.PriorityClassName = "low-priority"
 		} else if dp.GetName() == "stress-worker" {
+			time.Sleep(30 * time.Second)
 			logger.Info("start to handle dp: ", dp.GetName())
+			for _, container := range dp.Spec.Template.Spec.Containers {
+				container.ImagePullPolicy = corev1.PullAlways
+			}
 			dp.Spec.Template.Spec.PriorityClassName = "low-priority"
-			//dp.Spec.Template.Spec.Affinity.PodAffinity = &corev1.PodAffinity{
-			//	PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-			//		{
-			//			Weight: 100,
-			//			PodAffinityTerm: corev1.PodAffinityTerm{
-			//				TopologyKey: "kubernetes.io/hostname",
-			//				LabelSelector: &metav1.LabelSelector{
-			//					MatchLabels: map[string]string{
-			//						"io.kompose.service": "stress-worker",
-			//					},
-			//				},
-			//			},
-			//		},
-			//	},
-			//}
-		} else if dp.GetName() == "seckill-app" {
-			logger.Info("start to handle dp: ", dp.GetName())
-			dp.Spec.Template.Spec.PriorityClassName = "high-priority"
-			//dp.Spec.Template.Spec.Affinity.PodAffinity = &corev1.PodAffinity{
-			//	PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-			//		{
-			//			Weight: 100,
-			//			PodAffinityTerm: corev1.PodAffinityTerm{
-			//				TopologyKey: "kubernetes.io/hostname",
-			//				LabelSelector: &metav1.LabelSelector{
-			//					MatchLabels: map[string]string{
-			//						"app": "seckill-app",
-			//					},
-			//				},
-			//			},
-			//		},
-			//	},
-			//}
+			dp.Spec.Template.Spec.Affinity = &corev1.Affinity{
+				PodAntiAffinity: &corev1.PodAntiAffinity{
+					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+						{
+							Weight: 100,
+							PodAffinityTerm: corev1.PodAffinityTerm{
+								TopologyKey: "kubernetes.io/hostname",
+								LabelSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{
+										"io.kompose.service": "stress-worker",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
 		} else {
 			dp.Spec.Template.Spec.PriorityClassName = "low-priority"
 			logger.Info("no target deployment")
@@ -193,6 +210,7 @@ type WebHookStatefulSetHandler struct {
 }
 
 func (handler *WebHookStatefulSetHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
+	logger.Info("Req Method: ", req.Operation)
 	sts := &appsv1.StatefulSet{}
 	if err := handler.Decoder.Decode(req, sts); err == nil {
 		if sts.GetName() == "seckill-master" {
@@ -202,13 +220,15 @@ func (handler *WebHookStatefulSetHandler) Handle(ctx context.Context, req admiss
 				if container.Name != "bobft-seckill" {
 					continue
 				}
-				container.Resources.Requests = corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("4"),
-					corev1.ResourceMemory: resource.MustParse("8Gi"),
-				}
-				container.Resources.Limits = corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("4"),
-					corev1.ResourceMemory: resource.MustParse("8Gi"),
+				container.Resources = corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("4"),
+						corev1.ResourceMemory: resource.MustParse("8Gi"),
+					},
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("4"),
+						corev1.ResourceMemory: resource.MustParse("8Gi"),
+					},
 				}
 			}
 		} else if sts.GetName() == "seckill-slave" {
@@ -218,13 +238,15 @@ func (handler *WebHookStatefulSetHandler) Handle(ctx context.Context, req admiss
 				if container.Name != "bobft-seckill" {
 					continue
 				}
-				container.Resources.Requests = corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("4"),
-					corev1.ResourceMemory: resource.MustParse("8Gi"),
-				}
-				container.Resources.Limits = corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("4"),
-					corev1.ResourceMemory: resource.MustParse("8Gi"),
+				container.Resources = corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("4"),
+						corev1.ResourceMemory: resource.MustParse("8Gi"),
+					},
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("4"),
+						corev1.ResourceMemory: resource.MustParse("8Gi"),
+					},
 				}
 			}
 		} else {

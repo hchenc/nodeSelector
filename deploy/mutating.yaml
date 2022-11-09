@@ -26,7 +26,6 @@ webhooks:
           - v1
         operations:
           - CREATE
-          - UPDATE
         resources:
           - statefulsets
 ---
@@ -57,6 +56,5 @@ webhooks:
           - v1
         operations:
           - CREATE
-          - UPDATE
         resources:
           - deployments
