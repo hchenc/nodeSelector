@@ -6,21 +6,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"os"
-	"strconv"
 )
-
-var (
-	redisNode int
-)
-
-func init() {
-	if num := os.Getenv("Redis_Node"); num != "" {
-		redisNode, _ = strconv.Atoi(num)
-	} else {
-		redisNode = -1
-	}
-}
 
 func seckillHandler(sts *appsv1.StatefulSet) (string, bool) {
 	sts.Spec.Template.Spec.PriorityClassName = "high-priority"

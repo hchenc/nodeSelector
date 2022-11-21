@@ -2,127 +2,216 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/json"
 	"net/http"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"strings"
+	"strconv"
 )
 
-type WebHookHandler struct {
-	Client  client.Client
-	Decoder *admission.Decoder
-}
+//type WebHookHandler struct {
+//	Client  client.Client
+//	Decoder *admission.Decoder
+//}
+//
+//func (handler *WebHookHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
+//	sts := &appsv1.StatefulSet{}
+//	if err := handler.Decoder.Decode(req, sts); err == nil {
+//		logger.Info("start to handle sts: ", sts.GetName())
+//		if sts.GetName() == "seckill-master" {
+//			sts.Spec.Template.Spec.PriorityClassName = "system-cluster-critical"
+//			for _, container := range sts.Spec.Template.Spec.Containers {
+//				if container.Name != "bobft-seckill" {
+//					continue
+//				}
+//				container.Resources.Requests = corev1.ResourceList{
+//					corev1.ResourceCPU:    resource.MustParse("4"),
+//					corev1.ResourceMemory: resource.MustParse("8Gi"),
+//				}
+//				container.Resources.Limits = corev1.ResourceList{
+//					corev1.ResourceCPU:    resource.MustParse("4"),
+//					corev1.ResourceMemory: resource.MustParse("8Gi"),
+//				}
+//			}
+//		} else if sts.GetName() == "seckill-slave" {
+//			sts.Spec.Template.Spec.PriorityClassName = "high-priority"
+//			for _, container := range sts.Spec.Template.Spec.Containers {
+//				if container.Name != "bobft-seckill" {
+//					continue
+//				}
+//				container.Resources.Requests = corev1.ResourceList{
+//					corev1.ResourceCPU:    resource.MustParse("4"),
+//					corev1.ResourceMemory: resource.MustParse("8Gi"),
+//				}
+//				container.Resources.Limits = corev1.ResourceList{
+//					corev1.ResourceCPU:    resource.MustParse("4"),
+//					corev1.ResourceMemory: resource.MustParse("8Gi"),
+//				}
+//			}
+//		} else {
+//			return admission.Allowed("no target StatefulSet")
+//		}
+//
+//		if redisNode != -1 {
+//			sts.Spec.Template.Spec.NodeName = NodeArray[redisNode]
+//		}
+//		//logger.Info(sts.Spec.Template.Spec.Containers[0].Resources.Requests)
+//		//logger.Info(sts.Spec.Template.Spec.Containers[0].Resources.Limits)
+//		marshaledSts, err := json.Marshal(sts)
+//		if err != nil {
+//			logger.Info(err.Error())
+//			return admission.Errored(http.StatusInternalServerError, err)
+//		}
+//		logger.Info("end to handle sts: ", sts.GetName())
+//		return admission.PatchResponseFromRaw(req.Object.Raw, marshaledSts)
+//	}
+//
+//	dp := &appsv1.Deployment{}
+//	if err := handler.Decoder.Decode(req, dp); err == nil {
+//		logger.Info("start to handle dp: ", dp.GetName())
+//		if dp.GetName() == "stress-boss" {
+//			dp.Spec.Template.Spec.PriorityClassName = "low-priority"
+//		} else if dp.GetName() == "stress-worker" {
+//			dp.Spec.Template.Spec.PriorityClassName = "low-priority"
+//			dp.Spec.Template.Spec.Affinity.PodAffinity = &corev1.PodAffinity{
+//				PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+//					{
+//						Weight: 100,
+//						PodAffinityTerm: corev1.PodAffinityTerm{
+//							TopologyKey: "kubernetes.io/hostname",
+//							LabelSelector: &metav1.LabelSelector{
+//								MatchLabels: map[string]string{
+//									"io.kompose.service": "stress-worker",
+//								},
+//							},
+//						},
+//					},
+//				},
+//			}
+//		} else if dp.GetName() == "seckill-app" {
+//			dp.Spec.Template.Spec.PriorityClassName = "high-priority"
+//			dp.Spec.Template.Spec.Affinity.PodAffinity = &corev1.PodAffinity{
+//				PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+//					{
+//						Weight: 100,
+//						PodAffinityTerm: corev1.PodAffinityTerm{
+//							TopologyKey: "kubernetes.io/hostname",
+//							LabelSelector: &metav1.LabelSelector{
+//								MatchLabels: map[string]string{
+//									"app": "seckill-app",
+//								},
+//							},
+//						},
+//					},
+//				},
+//			}
+//		} else {
+//			return admission.Allowed("no target deployment")
+//		}
+//		marshaledDeploy, err := json.Marshal(dp)
+//		if err != nil {
+//			logger.Info(err.Error())
+//			return admission.Errored(http.StatusInternalServerError, err)
+//		}
+//		logger.Info("end to handle dp: ", dp.GetName())
+//
+//		return admission.PatchResponseFromRaw(req.Object.Raw, marshaledDeploy)
+//	}
+//	return admission.Allowed("No Resource Found")
+//}
 
-func (handler *WebHookHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
-	sts := &appsv1.StatefulSet{}
-	if err := handler.Decoder.Decode(req, sts); err == nil {
-		logger.Info("start to handle sts: ", sts.GetName())
-		if sts.GetName() == "seckill-master" {
-			sts.Spec.Template.Spec.PriorityClassName = "system-cluster-critical"
-			for _, container := range sts.Spec.Template.Spec.Containers {
-				if container.Name != "bobft-seckill" {
-					continue
-				}
-				container.Resources.Requests = corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("4"),
-					corev1.ResourceMemory: resource.MustParse("8Gi"),
-				}
-				container.Resources.Limits = corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("4"),
-					corev1.ResourceMemory: resource.MustParse("8Gi"),
-				}
-			}
-		} else if sts.GetName() == "seckill-slave" {
-			sts.Spec.Template.Spec.PriorityClassName = "high-priority"
-			for _, container := range sts.Spec.Template.Spec.Containers {
-				if container.Name != "bobft-seckill" {
-					continue
-				}
-				container.Resources.Requests = corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("4"),
-					corev1.ResourceMemory: resource.MustParse("8Gi"),
-				}
-				container.Resources.Limits = corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("4"),
-					corev1.ResourceMemory: resource.MustParse("8Gi"),
-				}
-			}
-		} else {
-			return admission.Allowed("no target StatefulSet")
-		}
+var (
+	redisNode  int
+	appNode    int
+	BossNode   = ""
+	resourceOn bool
+	cmdOn      bool
+	requestCPU string
+	requestMEM string
+	limitCPU   string
+	limitMEM   string
+	xms        string
+	xmx        string
+	xmn        string
+)
 
-		if redisNode != -1 {
-			sts.Spec.Template.Spec.NodeName = NodeArray[redisNode]
-		}
-		//logger.Info(sts.Spec.Template.Spec.Containers[0].Resources.Requests)
-		//logger.Info(sts.Spec.Template.Spec.Containers[0].Resources.Limits)
-		marshaledSts, err := json.Marshal(sts)
-		if err != nil {
-			logger.Info(err.Error())
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-		logger.Info("end to handle sts: ", sts.GetName())
-		return admission.PatchResponseFromRaw(req.Object.Raw, marshaledSts)
+func init() {
+
+	if num := os.Getenv("ResourceOn"); num != "" {
+		resourceOn = true
+	} else {
+		resourceOn = false
 	}
 
-	dp := &appsv1.Deployment{}
-	if err := handler.Decoder.Decode(req, dp); err == nil {
-		logger.Info("start to handle dp: ", dp.GetName())
-		if dp.GetName() == "stress-boss" {
-			dp.Spec.Template.Spec.PriorityClassName = "low-priority"
-		} else if dp.GetName() == "stress-worker" {
-			dp.Spec.Template.Spec.PriorityClassName = "low-priority"
-			dp.Spec.Template.Spec.Affinity.PodAffinity = &corev1.PodAffinity{
-				PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-					{
-						Weight: 100,
-						PodAffinityTerm: corev1.PodAffinityTerm{
-							TopologyKey: "kubernetes.io/hostname",
-							LabelSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"io.kompose.service": "stress-worker",
-								},
-							},
-						},
-					},
-				},
-			}
-		} else if dp.GetName() == "seckill-app" {
-			dp.Spec.Template.Spec.PriorityClassName = "high-priority"
-			dp.Spec.Template.Spec.Affinity.PodAffinity = &corev1.PodAffinity{
-				PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-					{
-						Weight: 100,
-						PodAffinityTerm: corev1.PodAffinityTerm{
-							TopologyKey: "kubernetes.io/hostname",
-							LabelSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"app": "seckill-app",
-								},
-							},
-						},
-					},
-				},
-			}
-		} else {
-			return admission.Allowed("no target deployment")
-		}
-		marshaledDeploy, err := json.Marshal(dp)
-		if err != nil {
-			logger.Info(err.Error())
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-		logger.Info("end to handle dp: ", dp.GetName())
-
-		return admission.PatchResponseFromRaw(req.Object.Raw, marshaledDeploy)
+	if num := os.Getenv("CmdOn"); num != "" {
+		cmdOn = true
+	} else {
+		cmdOn = false
 	}
-	return admission.Allowed("No Resource Found")
+
+	if num := os.Getenv("RedisNode"); num != "" {
+		redisNode, _ = strconv.Atoi(num)
+	} else {
+		redisNode = -1
+	}
+
+	if num := os.Getenv("AppNode"); num != "" {
+		appNode, _ = strconv.Atoi(num)
+	} else {
+		appNode = -1
+	}
+
+	if num := os.Getenv("XMS"); num != "" {
+		xms = num
+	} else {
+		xms = "4096m"
+	}
+
+	if num := os.Getenv("XMX"); num != "" {
+		xmx = num
+	} else {
+		xmx = "4096m"
+	}
+
+	if num := os.Getenv("XMN"); num != "" {
+		xmn = num
+	} else {
+		xmn = "3072m"
+	}
+
+	if num := os.Getenv("RequestCPU"); num != "" {
+		requestCPU = num
+	} else {
+		requestCPU = "4"
+	}
+
+	if num := os.Getenv("RequestMEM"); num != "" {
+		requestMEM = num
+	} else {
+		requestMEM = "16Gi"
+	}
+
+	if num := os.Getenv("LimitCPU"); num != "" {
+		limitCPU = num
+	} else {
+		limitCPU = "4"
+	}
+
+	if num := os.Getenv("LimitMEM"); num != "" {
+		limitMEM = num
+	} else {
+		limitMEM = "16Gi"
+	}
+
+	if node := os.Getenv("BossNode"); node != "" {
+		BossNode = node
+	}
 }
 
 type WebHookDeploymentHandler struct {
@@ -134,15 +223,48 @@ func (handler *WebHookDeploymentHandler) Handle(ctx context.Context, req admissi
 	logger.Info("Req Method: ", req.Operation)
 	dp := &appsv1.Deployment{}
 	if err := handler.Decoder.Decode(req, dp); err == nil {
+		logger.Info("start to handle dp: ", dp.GetName())
 		if dp.GetName() == "seckill-app" {
 			logger.Info("start to handle dp: ", dp.GetName())
 			dp.Spec.Template.Spec.PriorityClassName = "high-priority"
-		} else if dp.GetName() == "stress-boss" {
-			logger.Info("start to handle dp: ", dp.GetName())
-			dp.Spec.Template.Spec.PriorityClassName = "low-priority"
-		} else if dp.GetName() == "stress-worker" {
-			logger.Info("start to handle dp: ", dp.GetName())
-			dp.Spec.Template.Spec.PriorityClassName = "low-priority"
+			if resourceOn {
+				containers := dp.Spec.Template.Spec.Containers
+				container := corev1.Container{}
+				index := 0
+				if containers[0].Name == "mysql" {
+					container = containers[0]
+					index = 0
+				} else {
+					container = containers[1]
+					index = 1
+				}
+				container.Resources = corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse(limitCPU),
+						corev1.ResourceMemory: resource.MustParse(limitMEM),
+					},
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse(requestCPU),
+						corev1.ResourceMemory: resource.MustParse(requestMEM),
+					},
+				}
+				if cmdOn {
+					arg1 := fmt.Sprintf("-Xms%s", xms)
+					arg2 := fmt.Sprintf("-Xmx%s", xmx)
+					arg3 := fmt.Sprintf("-Xmn%s", xmn)
+					container.Command = []string{
+						"java",
+						arg1,
+						arg2,
+						arg3,
+						"-jar",
+						"/opt/seckill.jar",
+						"--spring.profiles.active=container",
+						"--server.port=30080",
+					}
+				}
+				dp.Spec.Template.Spec.Containers[index] = container
+			}
 			//dp.Spec.Template.Spec.Affinity = &corev1.Affinity{
 			//	PodAntiAffinity: &corev1.PodAntiAffinity{
 			//		PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
@@ -152,7 +274,7 @@ func (handler *WebHookDeploymentHandler) Handle(ctx context.Context, req admissi
 			//					TopologyKey: "kubernetes.io/hostname",
 			//					LabelSelector: &metav1.LabelSelector{
 			//						MatchLabels: map[string]string{
-			//							"io.kompose.service": "stress-worker",
+			//							"app": "seckill-app",
 			//						},
 			//					},
 			//				},
@@ -160,6 +282,113 @@ func (handler *WebHookDeploymentHandler) Handle(ctx context.Context, req admissi
 			//		},
 			//	},
 			//}
+		} else if dp.GetName() == "stress-boss" {
+			dp.Spec.Template.Spec.PriorityClassName = "low-priority"
+			if BossNode != "" {
+				dp.Spec.Template.Spec.NodeName = BossNode
+			}
+		} else if dp.GetName() == "stress-worker" {
+			dp.Spec.Template.Spec.PriorityClassName = "low-priority"
+			if resourceOn {
+				containers := dp.Spec.Template.Spec.Containers
+				container := corev1.Container{}
+				index := 0
+				if containers[0].Name == "stress-worker" {
+					container = containers[0]
+					index = 0
+				} else {
+					container = containers[1]
+					index = 1
+				}
+				container.Resources = corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceMemory: resource.MustParse("8Gi"),
+					},
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceMemory: resource.MustParse("8Gi"),
+					},
+				}
+				if cmdOn {
+					container.Command = []string{
+						"java",
+						"-Xms4096m",
+						"-Xmx4096m",
+						"-Xmn3072m",
+						"-jar",
+						"/opt/stress-worker.jar",
+						"--spring.profiles.active=container",
+						"--server.port=30070",
+					}
+				}
+				dp.Spec.Template.Spec.Containers[index] = container
+			}
+			dp.Spec.Template.Spec.Affinity = &corev1.Affinity{
+				PodAntiAffinity: &corev1.PodAntiAffinity{
+					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+						{
+							Weight: 100,
+							PodAffinityTerm: corev1.PodAffinityTerm{
+								TopologyKey: "kubernetes.io/hostname",
+								LabelSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{
+										"io.kompose.service": "stress-worker",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+		} else if dp.GetName() == "seckill-mysql" {
+			dp.Spec.Template.Spec.PriorityClassName = "low-priority"
+
+			//containers := dp.Spec.Template.Spec.Containers
+			//container := corev1.Container{}
+			//index := 0
+			//if containers[0].Name == "mysql" {
+			//	container = containers[0]
+			//	index = 0
+			//} else {
+			//	container = containers[1]
+			//	index = 1
+			//}
+			//container.Resources = corev1.ResourceRequirements{
+			//	Limits: corev1.ResourceList{
+			//		corev1.ResourceCPU:    resource.MustParse("2"),
+			//		corev1.ResourceMemory: resource.MustParse("2Gi"),
+			//	},
+			//	Requests: corev1.ResourceList{
+			//		corev1.ResourceCPU:    resource.MustParse("2"),
+			//		corev1.ResourceMemory: resource.MustParse("2Gi"),
+			//	},
+			//}
+			//dp.Spec.Template.Spec.Containers[index] = container
+		} else if dp.GetName() == "seckill-statis" {
+			dp.Spec.Template.Spec.PriorityClassName = "low-priority"
+
+			//containers := dp.Spec.Template.Spec.Containers
+			//container := corev1.Container{}
+			//index := 0
+			//if containers[0].Name == "mysql" {
+			//	container = containers[0]
+			//	index = 0
+			//} else {
+			//	container = containers[1]
+			//	index = 1
+			//}
+			//container.Resources = corev1.ResourceRequirements{
+			//	Limits: corev1.ResourceList{
+			//		corev1.ResourceCPU:    resource.MustParse("1"),
+			//		corev1.ResourceMemory: resource.MustParse("2Gi"),
+			//	},
+			//	Requests: corev1.ResourceList{
+			//		corev1.ResourceCPU:    resource.MustParse("1"),
+			//		corev1.ResourceMemory: resource.MustParse("2Gi"),
+			//	},
+			//}
+			//dp.Spec.Template.Spec.Containers[index] = container
 		} else {
 			dp.Spec.Template.Spec.PriorityClassName = "low-priority"
 			logger.Info("no target deployment")
@@ -188,68 +417,61 @@ func (handler *WebHookStatefulSetHandler) Handle(ctx context.Context, req admiss
 		if sts.GetName() == "seckill-master" {
 			logger.Info("start to handle sts: ", sts.GetName())
 			sts.Spec.Template.Spec.PriorityClassName = "system-cluster-critical"
-			for _, container := range sts.Spec.Template.Spec.Containers {
-				if container.Name != "bobft-seckill" {
-					continue
+			//sts.Spec.Template.Spec.NodeName = "worker5"
+			if resourceOn {
+				containers := sts.Spec.Template.Spec.Containers
+				container := corev1.Container{}
+				index := 0
+				if containers[0].Name == "bobft-seckill" {
+					container = containers[0]
+					index = 0
+				} else {
+					container = containers[1]
+					index = 1
 				}
-				container.ReadinessProbe = &corev1.Probe{
-					Handler: corev1.Handler{
-						TCPSocket: &corev1.TCPSocketAction{
-							Port: intstr.FromInt(6379),
-						},
+				container.Resources = corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceMemory: resource.MustParse("8Gi"),
 					},
-					InitialDelaySeconds: 0,
-					TimeoutSeconds:      1,
-					PeriodSeconds:       3,
-					SuccessThreshold:    1,
-					FailureThreshold:    3,
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceMemory: resource.MustParse("8Gi"),
+					},
 				}
-				//container.Resources = corev1.ResourceRequirements{
-				//	Limits: corev1.ResourceList{
-				//		corev1.ResourceCPU:    resource.MustParse("4"),
-				//		corev1.ResourceMemory: resource.MustParse("8Gi"),
-				//	},
-				//	Requests: corev1.ResourceList{
-				//		corev1.ResourceCPU:    resource.MustParse("4"),
-				//		corev1.ResourceMemory: resource.MustParse("8Gi"),
-				//	},
-				//}
+				sts.Spec.Template.Spec.Containers[index] = container
 			}
 		} else if sts.GetName() == "seckill-slave" {
 			logger.Info("start to handle sts: ", sts.GetName())
 			sts.Spec.Template.Spec.PriorityClassName = "high-priority"
-			for _, container := range sts.Spec.Template.Spec.Containers {
-				if container.Name != "bobft-seckill" {
-					continue
+			//sts.Spec.Template.Spec.NodeName = "worker5"
+			if resourceOn {
+				containers := sts.Spec.Template.Spec.Containers
+				container := corev1.Container{}
+				index := 0
+				if containers[0].Name == "bobft-seckill" {
+					container = containers[0]
+					index = 0
+				} else {
+					container = containers[1]
+					index = 1
 				}
-				container.ReadinessProbe = &corev1.Probe{
-					Handler: corev1.Handler{
-						TCPSocket: &corev1.TCPSocketAction{
-							Port: intstr.FromInt(6379),
-						},
+				container.Resources = corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceMemory: resource.MustParse("8Gi"),
 					},
-					InitialDelaySeconds: 0,
-					TimeoutSeconds:      1,
-					PeriodSeconds:       3,
-					SuccessThreshold:    1,
-					FailureThreshold:    3,
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceMemory: resource.MustParse("8Gi"),
+					},
 				}
-				//container.Resources = corev1.ResourceRequirements{
-				//	Limits: corev1.ResourceList{
-				//		corev1.ResourceCPU:    resource.MustParse("4"),
-				//		corev1.ResourceMemory: resource.MustParse("8Gi"),
-				//	},
-				//	Requests: corev1.ResourceList{
-				//		corev1.ResourceCPU:    resource.MustParse("4"),
-				//		corev1.ResourceMemory: resource.MustParse("8Gi"),
-				//	},
-				//}
+				sts.Spec.Template.Spec.Containers[index] = container
 			}
 		} else {
 			logger.Info("no target StatefulSet")
 			return admission.Allowed("no target StatefulSet")
 		}
-
 		if redisNode != -1 {
 			sts.Spec.Template.Spec.NodeName = NodeArray[redisNode]
 		}
@@ -264,140 +486,4 @@ func (handler *WebHookStatefulSetHandler) Handle(ctx context.Context, req admiss
 		return admission.PatchResponseFromRaw(req.Object.Raw, marshaledSts)
 	}
 	return admission.Allowed("No Resource Found")
-}
-
-type NodeSelectorHandler struct {
-	Client  client.Client
-	Decoder *admission.Decoder
-}
-
-func (handler *NodeSelectorHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
-	logger.Info("start!!!!!!!!")
-	resourceName, resourceObject := resourceType(req.Name)
-	switch resourceName {
-	case "oltp":
-		deployment, _ := resourceObject.(*appsv1.Deployment)
-
-		err := handler.Decoder.Decode(req, deployment)
-		if err != nil {
-			logger.Info(err.Error())
-			return admission.Errored(http.StatusBadRequest, err)
-		}
-		msg, success := oltpHandler(deployment)
-		logger.Info(msg)
-		if !success {
-			admission.Allowed(msg)
-		} else {
-			marshaledDeploy, err := json.Marshal(deployment)
-			if err != nil {
-				logger.Info(err.Error())
-				return admission.Errored(http.StatusInternalServerError, err)
-			}
-			logger.Info("end!!!!!!!!")
-
-			return admission.PatchResponseFromRaw(req.Object.Raw, marshaledDeploy)
-		}
-	case "olap":
-		return admission.Allowed("olap no handler")
-	case "seckill-sts":
-		sts, _ := resourceObject.(*appsv1.StatefulSet)
-		logger.Info("start to handle: ", sts.Name)
-
-		err := handler.Decoder.Decode(req, sts)
-		if err != nil {
-			logger.Info(err.Error())
-			return admission.Errored(http.StatusBadRequest, err)
-		}
-		msg, success := seckillRedisHandler(sts)
-		logger.Info(msg)
-		if !success {
-			admission.Allowed(msg)
-		} else {
-			marshaledSts, err := json.Marshal(sts)
-			if err != nil {
-				logger.Info(err.Error())
-				return admission.Errored(http.StatusInternalServerError, err)
-			}
-
-			response := admission.PatchResponseFromRaw(req.Object.Raw, marshaledSts)
-			logger.Info(response.Result)
-			logger.Info("end!!!!!!!!")
-			return response
-		}
-	case "seckill-app":
-		deployment, _ := resourceObject.(*appsv1.Deployment)
-		logger.Info("start to handle: ", deployment.Name)
-		err := handler.Decoder.Decode(req, deployment)
-		if err != nil {
-			logger.Info(err.Error())
-			return admission.Errored(http.StatusBadRequest, err)
-		}
-		switch deployment.Name {
-		case "stress-boss":
-			msg, success := seckillStressBossHandler(deployment)
-			logger.Info(msg)
-			if !success {
-				admission.Allowed(msg)
-			} else {
-				marshaledDeploy, err := json.Marshal(deployment)
-				if err != nil {
-					logger.Info(err.Error())
-					return admission.Errored(http.StatusInternalServerError, err)
-				}
-				response := admission.PatchResponseFromRaw(req.Object.Raw, marshaledDeploy)
-				logger.Info(response.Result)
-				logger.Info("end!!!!!!!!")
-				return response
-			}
-		case "stress-worker":
-			msg, success := seckillStressWorkerHandler(deployment)
-			logger.Info(msg)
-			if !success {
-				admission.Allowed(msg)
-			} else {
-				marshaledDeploy, err := json.Marshal(deployment)
-				if err != nil {
-					logger.Info(err.Error())
-					return admission.Errored(http.StatusInternalServerError, err)
-				}
-				response := admission.PatchResponseFromRaw(req.Object.Raw, marshaledDeploy)
-				logger.Info(response.Result)
-				logger.Info("end!!!!!!!!")
-				return response
-			}
-		case "seckill-app":
-			msg, success := seckillSeckillAppHandler(deployment)
-			logger.Info(msg)
-			if !success {
-				admission.Allowed(msg)
-			} else {
-				marshaledDeploy, err := json.Marshal(deployment)
-				if err != nil {
-					logger.Info(err.Error())
-					return admission.Errored(http.StatusInternalServerError, err)
-				}
-				response := admission.PatchResponseFromRaw(req.Object.Raw, marshaledDeploy)
-				logger.Info(response.Result)
-				logger.Info("end!!!!!!!!")
-				return response
-			}
-		}
-	}
-	return admission.Allowed("no resource found")
-}
-
-func resourceType(resourceName string) (name string, resourceObject client.Object) {
-	if resourceName == "seckill-slave" || resourceName == "seckill-master" {
-		resourceObject = &appsv1.StatefulSet{}
-		return "seckill-sts", resourceObject
-	} else if resourceName == "seckill-app" || resourceName == "stress-worker" || resourceName == "stress-boss" {
-		resourceObject = &appsv1.Deployment{}
-		return "seckill-dp", resourceObject
-	} else if strings.Contains(resourceName, "ftdb") && strings.Contains(resourceName, "bobft") {
-		return "oltp", &appsv1.Deployment{}
-	} else if strings.Contains(resourceName, "flink-taskmanager") {
-		return "olap", &appsv1.Deployment{}
-	} else {
-		return "", nil
-	}
 }

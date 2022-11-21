@@ -28,7 +28,7 @@ const (
 var (
 	config *rest.Config
 
-	limitCPU string
+	DelimitCPU string
 
 	NodeCount int
 	NodeArray []string
@@ -54,9 +54,9 @@ var (
 
 func init() {
 	if cpu := os.Getenv("Limit_CPU"); cpu != "" {
-		limitCPU = cpu
+		DelimitCPU = cpu
 	} else {
-		limitCPU = "2"
+		DelimitCPU = "2"
 	}
 
 	// creates the in-cluster config
@@ -124,7 +124,7 @@ func oltpHandler(deployment *appsv1.Deployment) (string, bool) {
 			v1.ResourceMemory: resource.MustParse("2Gi"),
 		}
 		deployment.Spec.Template.Spec.Containers[0].Resources.Limits = v1.ResourceList{
-			v1.ResourceCPU:    resource.MustParse(limitCPU),
+			v1.ResourceCPU:    resource.MustParse(DelimitCPU),
 			v1.ResourceMemory: resource.MustParse("2Gi"),
 		}
 		arrayNum, _ = strconv.Atoi(strings.Split(deployment.Name, Slave)[1])
@@ -134,7 +134,7 @@ func oltpHandler(deployment *appsv1.Deployment) (string, bool) {
 			v1.ResourceMemory: resource.MustParse("2Gi"),
 		}
 		deployment.Spec.Template.Spec.Containers[0].Resources.Limits = v1.ResourceList{
-			v1.ResourceCPU:    resource.MustParse(limitCPU),
+			v1.ResourceCPU:    resource.MustParse(DelimitCPU),
 			v1.ResourceMemory: resource.MustParse("2Gi"),
 		}
 		arrayNum, _ = strconv.Atoi(strings.Split(deployment.Name, Mysql)[1])
