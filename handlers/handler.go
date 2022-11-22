@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -127,18 +126,23 @@ import (
 //}
 
 var (
-	redisNode  int
-	appNode    int
-	BossNode   = ""
-	resourceOn bool
-	cmdOn      bool
-	requestCPU string
-	requestMEM string
-	limitCPU   string
-	limitMEM   string
-	xms        string
-	xmx        string
-	xmn        string
+	redisNode     int
+	appNode       int
+	BossNode      = ""
+	resourceOn    bool
+	cmdOn         bool
+	appRequestCPU string
+	appRequestMEM string
+	appLimitCPU   string
+	appLimitMEM   string
+
+	workerRequestCPU string
+	workerRequestMEM string
+	workerLimitCPU   string
+	workerLimitMEM   string
+	xms              string
+	xmx              string
+	xmn              string
 )
 
 func init() {
@@ -186,27 +190,27 @@ func init() {
 	}
 
 	if num := os.Getenv("RequestCPU"); num != "" {
-		requestCPU = num
+		appRequestCPU = num
 	} else {
-		requestCPU = "4"
+		appRequestCPU = "4"
 	}
 
 	if num := os.Getenv("RequestMEM"); num != "" {
-		requestMEM = num
+		appRequestMEM = num
 	} else {
-		requestMEM = "16Gi"
+		appRequestMEM = "16Gi"
 	}
 
 	if num := os.Getenv("LimitCPU"); num != "" {
-		limitCPU = num
+		appLimitCPU = num
 	} else {
-		limitCPU = "4"
+		appLimitCPU = "4"
 	}
 
 	if num := os.Getenv("LimitMEM"); num != "" {
-		limitMEM = num
+		appLimitMEM = num
 	} else {
-		limitMEM = "16Gi"
+		appLimitMEM = "16Gi"
 	}
 
 	if node := os.Getenv("BossNode"); node != "" {
@@ -240,23 +244,22 @@ func (handler *WebHookDeploymentHandler) Handle(ctx context.Context, req admissi
 				}
 				container.Resources = corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse(limitCPU),
-						corev1.ResourceMemory: resource.MustParse(limitMEM),
+						corev1.ResourceCPU:    resource.MustParse("6"),
+						corev1.ResourceMemory: resource.MustParse("64Gi"),
 					},
 					Requests: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse(requestCPU),
-						corev1.ResourceMemory: resource.MustParse(requestMEM),
+						corev1.ResourceCPU:    resource.MustParse("6"),
+						corev1.ResourceMemory: resource.MustParse("64Gi"),
 					},
 				}
 				if cmdOn {
-					arg1 := fmt.Sprintf("-Xms%s", xms)
-					arg2 := fmt.Sprintf("-Xmx%s", xmx)
-					arg3 := fmt.Sprintf("-Xmn%s", xmn)
 					container.Command = []string{
 						"java",
-						arg1,
-						arg2,
-						arg3,
+						"-server",
+						"-Xms32768m",
+						"-Xmx32768m",
+						"-Xmn16384m",
+						"-Xss1024k",
 						"-jar",
 						"/opt/seckill.jar",
 						"--spring.profiles.active=container",
@@ -265,23 +268,23 @@ func (handler *WebHookDeploymentHandler) Handle(ctx context.Context, req admissi
 				}
 				dp.Spec.Template.Spec.Containers[index] = container
 			}
-			//dp.Spec.Template.Spec.Affinity = &corev1.Affinity{
-			//	PodAntiAffinity: &corev1.PodAntiAffinity{
-			//		PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-			//			{
-			//				Weight: 100,
-			//				PodAffinityTerm: corev1.PodAffinityTerm{
-			//					TopologyKey: "kubernetes.io/hostname",
-			//					LabelSelector: &metav1.LabelSelector{
-			//						MatchLabels: map[string]string{
-			//							"app": "seckill-app",
-			//						},
-			//					},
-			//				},
-			//			},
-			//		},
-			//	},
-			//}
+			dp.Spec.Template.Spec.Affinity = &corev1.Affinity{
+				PodAntiAffinity: &corev1.PodAntiAffinity{
+					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+						{
+							Weight: 100,
+							PodAffinityTerm: corev1.PodAffinityTerm{
+								TopologyKey: "kubernetes.io/hostname",
+								LabelSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{
+										"app": "seckill-app",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
 		} else if dp.GetName() == "stress-boss" {
 			dp.Spec.Template.Spec.PriorityClassName = "low-priority"
 			if BossNode != "" {
@@ -302,20 +305,22 @@ func (handler *WebHookDeploymentHandler) Handle(ctx context.Context, req admissi
 				}
 				container.Resources = corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceCPU:    resource.MustParse("1"),
 						corev1.ResourceMemory: resource.MustParse("8Gi"),
 					},
 					Requests: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceCPU:    resource.MustParse("1"),
 						corev1.ResourceMemory: resource.MustParse("8Gi"),
 					},
 				}
 				if cmdOn {
 					container.Command = []string{
 						"java",
+						"-server",
 						"-Xms4096m",
 						"-Xmx4096m",
-						"-Xmn3072m",
+						"-Xmn2048m",
+						"-Xss512k",
 						"-jar",
 						"/opt/stress-worker.jar",
 						"--spring.profiles.active=container",
@@ -431,11 +436,11 @@ func (handler *WebHookStatefulSetHandler) Handle(ctx context.Context, req admiss
 				}
 				container.Resources = corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceCPU:    resource.MustParse("4"),
 						corev1.ResourceMemory: resource.MustParse("8Gi"),
 					},
 					Requests: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceCPU:    resource.MustParse("4"),
 						corev1.ResourceMemory: resource.MustParse("8Gi"),
 					},
 				}
@@ -458,11 +463,11 @@ func (handler *WebHookStatefulSetHandler) Handle(ctx context.Context, req admiss
 				}
 				container.Resources = corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceCPU:    resource.MustParse("4"),
 						corev1.ResourceMemory: resource.MustParse("8Gi"),
 					},
 					Requests: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceCPU:    resource.MustParse("4"),
 						corev1.ResourceMemory: resource.MustParse("8Gi"),
 					},
 				}
